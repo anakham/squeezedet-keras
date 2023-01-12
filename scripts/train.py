@@ -4,20 +4,25 @@
 # Date: 08.12.17
 # Organisation: searchInk
 # Email: christopher@searchink.com
-
+import sys
+if __name__ == "__main__":
+    import pathlib
+    root_dir = str(pathlib.Path(__file__).parent.parent)
+    sys.path.append(root_dir)
 
 from main.model.squeezeDet import  SqueezeDet
 from main.model.dataGenerator import generator_from_data_path
-import keras.backend as K
-from keras import optimizers
-import tensorflow as tf
+import tensorflow.compat.v1.keras.backend as K
+from tensorflow.compat.v1.keras import optimizers
+import tensorflow.compat.v1 as tf
+tf.compat.v1.disable_v2_behavior()
 from keras.callbacks import TensorBoard, ModelCheckpoint, LearningRateScheduler, ReduceLROnPlateau
 from main.model.modelLoading import load_only_possible_weights
 from main.model.multi_gpu_model_checkpoint import  ModelCheckpointMultiGPU
 import argparse
 import os
 import gc
-from keras.utils import multi_gpu_model
+from tensorflow.python.keras.utils.multi_gpu_utils import multi_gpu_model
 import pickle
 from main.config.create_config import load_dict
 
@@ -215,6 +220,12 @@ def train():
     #create train generator
     train_generator = generator_from_data_path(img_names, gt_names, config=cfg)
 
+    def metric_wrap(model, metric_fn):
+        def _metric_fn(*args):
+            return metric_fn(model, *args)
+        _metric_fn.__name__ = metric_fn.__name__
+        return _metric_fn
+
     #make model parallel if specified
     if GPUS > 1:
 
@@ -231,7 +242,12 @@ def train():
         # make the model parallel
         parallel_model = multi_gpu_model(squeeze.model, gpus=GPUS)
         parallel_model.compile(optimizer=opt,
-                              loss=[squeeze.loss], metrics=[squeeze.loss_without_regularization, squeeze.bbox_loss, squeeze.class_loss, squeeze.conf_loss])
+                               loss=[squeeze.loss],
+                               metrics=[metric_wrap(squeeze, SqueezeDet.loss_without_regularization),
+                                       metric_wrap(squeeze, SqueezeDet.bbox_loss),
+                                       metric_wrap(squeeze, SqueezeDet.class_loss),
+                                       metric_wrap(squeeze, SqueezeDet.conf_loss)
+                                       ])
 
 
 
@@ -252,7 +268,12 @@ def train():
         print("Using single GPU")
         #compile model from squeeze object, loss is not a function of model directly
         squeeze.model.compile(optimizer=opt,
-                              loss=[squeeze.loss], metrics=[squeeze.loss_without_regularization, squeeze.bbox_loss, squeeze.class_loss, squeeze.conf_loss])
+                              loss=[squeeze.loss],
+                              metrics=[metric_wrap(squeeze, SqueezeDet.loss_without_regularization),
+                                       metric_wrap(squeeze, SqueezeDet.bbox_loss),
+                                       metric_wrap(squeeze, SqueezeDet.class_loss),
+                                       metric_wrap(squeeze, SqueezeDet.conf_loss)
+                                       ])
 
         #actually do the training
         squeeze.model.fit_generator(train_generator, epochs=EPOCHS,

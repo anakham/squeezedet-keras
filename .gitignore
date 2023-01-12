@@ -130,3 +130,6 @@ labels/*
 
 # End of https://www.gitignore.io/api/venv,python,visualstudiocode
 
+# PyCharm
+.idea/*
+

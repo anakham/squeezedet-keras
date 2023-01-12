@@ -5,19 +5,25 @@
 # Organisation: searchInk
 # Email: christopher@searchink.com
 
+import sys
+if __name__ == "__main__":
+    import pathlib
+    root_dir = str(pathlib.Path(__file__).parent.parent)
+    sys.path.append(root_dir)
 
 from main.model.squeezeDet import  SqueezeDet
 from main.model.dataGenerator import generator_from_data_path, visualization_generator_from_data_path
-import keras.backend as K
-from keras import optimizers
-import tensorflow as tf
+from tensorflow.keras import optimizers
+import tensorflow.compat.v1 as tf
+import tensorflow.compat.v1.keras.backend as K
+tf.compat.v1.disable_v2_behavior()
 from main.model.evaluation import evaluate
-from main.model.visualization import  visualize
+from main.model.visualization import visualize
 import os
 import time
 import numpy as np
 import argparse
-from keras.utils import multi_gpu_model
+from tensorflow.python.keras.utils.multi_gpu_utils import multi_gpu_model
 from main.config.create_config import load_dict
 
 #default values for some variables
@@ -238,7 +244,11 @@ def eval():
     sgd = optimizers.SGD(lr=cfg.LEARNING_RATE, decay=0, momentum=cfg.MOMENTUM,
                          nesterov=False, clipnorm=cfg.MAX_GRAD_NORM)
 
-
+    def metric_wrap(model, metric_fn):
+        def _metric_fn(*args):
+            return metric_fn(model, *args)
+        _metric_fn.__name__ = metric_fn.__name__
+        return _metric_fn
 
 
     if GPUS > 1:
@@ -246,15 +256,22 @@ def eval():
         #parallelize model
         model = multi_gpu_model(squeeze.model, gpus=GPUS)
         model.compile(optimizer=sgd,
-                              loss=[squeeze.loss], metrics=[squeeze.bbox_loss, squeeze.class_loss,
-                                                            squeeze.conf_loss, squeeze.loss_without_regularization])
+                              loss=[squeeze.loss], metrics=[metric_wrap(squeeze, SqueezeDet.bbox_loss),
+                                                            metric_wrap(squeeze, SqueezeDet.class_loss),
+                                                            metric_wrap(squeeze, SqueezeDet.conf_loss),
+                                                            metric_wrap(squeeze, SqueezeDet.loss_without_regularization)
+                                                            ])
+
 
 
     else:
     #compile model from squeeze object, loss is not a function of model directly
         squeeze.model.compile(optimizer=sgd,
-                              loss=[squeeze.loss], metrics=[squeeze.bbox_loss, squeeze.class_loss,
-                                                            squeeze.conf_loss, squeeze.loss_without_regularization])
+                              loss=[squeeze.loss], metrics=[metric_wrap(squeeze, SqueezeDet.bbox_loss),
+                                                            metric_wrap(squeeze, SqueezeDet.class_loss),
+                                                            metric_wrap(squeeze, SqueezeDet.conf_loss),
+                                                            metric_wrap(squeeze, SqueezeDet.loss_without_regularization)
+                                                            ])
 
         model = squeeze.model
     #models already evaluated

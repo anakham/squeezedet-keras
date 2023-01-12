@@ -117,7 +117,7 @@ def visualize_dt_and_gt(images, y_true, y_pred, config):
                 for j, l in enumerate(labels[i, k]):
                     if l == 1:
                         non_zero_labels.append(j)
-
+        img = img.astype(np.uint8)
         #iterate predicted boxes
         for j, det_box in enumerate(all_filtered_boxes[i]):
 
@@ -138,7 +138,7 @@ def visualize_dt_and_gt(images, y_true, y_pred, config):
             cv2.rectangle(img, (gt_box[0], gt_box[1]), (gt_box[2], gt_box[3]), (0, 255, 0), 1)
             cv2.putText(img, config.CLASS_NAMES[int(non_zero_labels[j])], (gt_box[0], gt_box[1]), font, 0.5,
                         (0, 255, 0), 1, cv2.LINE_AA)
-
+        img = img.astype(np.float32)
         #chagne to rgb
         img_with_boxes.append(img[:,:, [2,1,0]])
 

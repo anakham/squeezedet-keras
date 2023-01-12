@@ -6,15 +6,16 @@
 # Email: christopher@searchink.com
 
 
+import tensorflow.compat.v1 as tf
 
-from keras.models import Model
-from keras.layers import Input, MaxPool2D,  Conv2D, Dropout, concatenate, Reshape, Lambda, AveragePooling2D
-from keras import backend as K
-from keras.initializers import TruncatedNormal
-from keras.regularizers import l2
+from tensorflow.compat.v1.keras.models import Model
+from tensorflow.compat.v1.keras.layers import Input, MaxPool2D,  Conv2D, Dropout, concatenate, Reshape, Lambda, AveragePooling2D
+from tensorflow.compat.v1.keras import backend as K
+from tensorflow.compat.v1.keras.initializers import TruncatedNormal
+from tensorflow.compat.v1.keras.regularizers import l2
 import main.utils.utils as utils
 import numpy as np
-import tensorflow as tf
+
 
 #class that wraps config and model
 class SqueezeDet():
@@ -147,7 +148,7 @@ class SqueezeDet():
         #return K.concatenate( [input, pad], axis=-1)
 
 
-        padding = np.zeros((3,2))
+        padding = np.zeros((3,2),dtype=np.int32)
         padding[2,1] = 4
         return tf.pad(input, padding ,"CONSTANT")
 
@@ -173,7 +174,7 @@ class SqueezeDet():
         labels = y_true[:, :, 9:]
 
         #number of objects. Used to normalize bbox and classification loss
-        num_objects = K.sum(input_mask)
+        num_objects = K.sum(input_mask)+0.001
 
 
         #before computing the losses we need to slice the network outputs
@@ -202,8 +203,8 @@ class SqueezeDet():
 
         
         #compute class loss,add a small value into log to prevent blowing up
-        class_loss = K.sum(labels * (-K.log(pred_class_probs + mc.EPSILON))
-                 + (1 - labels) * (-K.log(1 - pred_class_probs + mc.EPSILON))
+        class_loss = K.sum(labels * (-K.log(pred_class_probs + mc.EPSILON + 0.001))
+                 + (1 - labels) * (-K.log(1 - pred_class_probs + mc.EPSILON + 0.001))
                 * input_mask * mc.LOSS_COEF_CLASS) / num_objects
 
         #bounding box loss
@@ -255,7 +256,7 @@ class SqueezeDet():
         box_delta_input = y_true[:, :, 5:9]
 
         #number of objects. Used to normalize bbox and classification loss
-        num_objects = K.sum(input_mask)
+        num_objects = K.sum(input_mask)+0.001
 
 
         #before computing the losses we need to slice the network outputs
@@ -319,7 +320,7 @@ class SqueezeDet():
         box_input = y_true[:, :, 1:5]
 
         #number of objects. Used to normalize bbox and classification loss
-        num_objects = K.sum(input_mask)
+        num_objects = K.sum(input_mask)+0.001
 
 
         #before computing the losses we need to slice the network outputs
@@ -412,7 +413,7 @@ class SqueezeDet():
         labels = y_true[:, :, 9:]
 
         #number of objects. Used to normalize bbox and classification loss
-        num_objects = K.sum(input_mask)
+        num_objects = K.sum(input_mask)+0.001
 
 
         #before computing the losses we need to slice the network outputs
@@ -438,8 +439,8 @@ class SqueezeDet():
 
 
         #compute class loss
-        class_loss = K.sum((labels * (-K.log(pred_class_probs + mc.EPSILON))
-                 + (1 - labels) * (-K.log(1 - pred_class_probs + mc.EPSILON)))
+        class_loss = K.sum((labels * (-K.log(pred_class_probs + mc.EPSILON + 0.001))
+                 + (1 - labels) * (-K.log(1 - pred_class_probs + mc.EPSILON + 0.001)))
                 * input_mask * mc.LOSS_COEF_CLASS) / num_objects
 
 
@@ -468,7 +469,7 @@ class SqueezeDet():
         labels = y_true[:, :, 9:]
 
         #number of objects. Used to normalize bbox and classification loss
-        num_objects = K.sum(input_mask)
+        num_objects = K.sum(input_mask) + 0.001
 
 
         #before computing the losses we need to slice the network outputs
@@ -500,8 +501,8 @@ class SqueezeDet():
 
 
         #compute class loss
-        class_loss = K.sum(labels * (-K.log(pred_class_probs + mc.EPSILON))
-                 + (1 - labels) * (-K.log(1 - pred_class_probs + mc.EPSILON))
+        class_loss = K.sum(labels * (-K.log(pred_class_probs + mc.EPSILON + 0.001))
+                 + (1 - labels) * (-K.log(1 - pred_class_probs + mc.EPSILON + 0.001))
                 * input_mask * mc.LOSS_COEF_CLASS) / num_objects
 
 
