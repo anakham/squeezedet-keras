@@ -40,7 +40,7 @@ class SqueezeDet():
         """
         input_layer = Input(shape=( self.config.IMAGE_HEIGHT, self.config.IMAGE_WIDTH, self.config.N_CHANNELS), name="input")
 
-        conv1 = Conv2D(filters=64, kernel_size=(3, 3), strides=(2, 2), padding="SAME", activation='relu',
+        conv1 = Conv2D(name="conv2d_1", filters=64, kernel_size=(3, 3), strides=(2, 2), padding="SAME", activation='relu',
                        use_bias=True, kernel_initializer=TruncatedNormal(stddev=0.001),
                        kernel_regularizer=l2(self.config.WEIGHT_DECAY))(input_layer)
 
