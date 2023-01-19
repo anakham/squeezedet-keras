@@ -359,61 +359,62 @@ def AP( predictions, scores):
 
     for i in range(len(predictions)):
 
+        ap[i, 0] = 0
+        ap[i, 1] = 0
         #if this is dummy class with no predictions and gts
-
         if len(predictions[i]) == 0:
-            ap[i,0] = 0
-            ap[i,1] = 0
+            continue
 
-        else:
-
-            #sort zipped lists
-            zipped = zip(predictions[i], scores[i])
+        #sort zipped lists
+        zipped = zip(predictions[i], scores[i])
 
 
-            spreds_and_scores = sorted(zipped, key=lambda x: x[1], reverse=True)
+        spreds_and_scores = sorted(zipped, key=lambda x: x[1], reverse=True)
 
-            #unzip
-            spreds, sscores = zip(*spreds_and_scores)
+        #unzip
+        spreds, sscores = zip(*spreds_and_scores)
 
-            #get the indices of gts
-            npos = [ t[0] for t in enumerate(spreds) if t[1] > 0 ]
-
-
-            #count gts
-            N = len(npos)
-
-            #compute the precisions at every gt
-            nprec = np.arange(1,N+1) / (np.array(npos)+1)
-
-            #store the mean
-            ap[i, 0] = np.mean(nprec)
-
-            #interpolated precisions
-            inprec =  np.zeros_like(nprec)
-
-            #maximum
-            mx = nprec[-1]
-
-            inprec[-1] = mx
-
-            #go backwards through precisions and check if current precision is bigger than last max
-            for j in range(len(npos)-2, -1, -1):
-
-                if nprec[j] > mx:
-                    mx = nprec[j]
-                inprec[j] = mx
-
-            #mean of interpolated precisions
-            ap[i,1] = np.mean(inprec)
+        #get the indices of gts
+        npos = [ t[0] for t in enumerate(spreds) if t[1] > 0 ]
 
 
-            #get 11 indices
-            idx =  (np.concatenate( (np.zeros((1)), np.maximum(np.zeros(10), np.around((N-1)/(10) * np.arange(1,11))-1)))).astype(int)
+        #count gts
+        N = len(npos)
+
+        if N == 0:
+            continue
+
+        #compute the precisions at every gt
+        nprec = np.arange(1,N+1) / (np.array(npos)+1)
+
+        #store the mean
+        ap[i, 0] = np.mean(nprec)
+
+        #interpolated precisions
+        inprec =  np.zeros_like(nprec)
+
+        #maximum
+        mx = nprec[-1]
+
+        inprec[-1] = mx
+
+        #go backwards through precisions and check if current precision is bigger than last max
+        for j in range(len(npos)-2, -1, -1):
+
+            if nprec[j] > mx:
+                mx = nprec[j]
+            inprec[j] = mx
+
+        #mean of interpolated precisions
+        ap[i,1] = np.mean(inprec)
 
 
-            iprec += inprec[idx]
-            prec += nprec[idx]
+        #get 11 indices
+        idx =  (np.concatenate( (np.zeros((1)), np.maximum(np.zeros(10), np.around((N-1)/(10) * np.arange(1,11))-1)))).astype(int)
+
+
+        iprec += inprec[idx]
+        prec += nprec[idx]
 
 
     return ap, prec / len(predictions), iprec / len(predictions)

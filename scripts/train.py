@@ -96,12 +96,14 @@ def train():
 
 
     #open files with images and ground truths files with full path names
-    img_names = None
+    with open(gt_file) as gts:
+        gt_names = gts.read().splitlines()
     if img_file != "none":
         with open(img_file) as imgs:
             img_names = imgs.read().splitlines()
-    with open(gt_file) as gts:
-        gt_names = gts.read().splitlines()
+    else:
+        img_names = [None] * len(gt_names)
+
 
     #create train generator
     train_generator = generator_from_data_path(img_names, gt_names, config=cfg)

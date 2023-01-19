@@ -4,12 +4,14 @@
 # Date: 29.11.17
 # Organisation: searchInk
 # Email: christopher@searchink.com
-
+import json
 import threading
 import cv2
 import numpy as np
 import random
 from main.utils.utils import bbox_transform_inv, batch_iou, sparse_to_dense
+import json
+import pathlib
 
 
 class threadsafe_iter:
@@ -37,6 +39,92 @@ def threadsafe_generator(f):
     return g
 
 
+# loads annotations from kitti dataset file
+def load_txt_annotation(gt_file, config):
+
+    with open(gt_file, 'r') as f:
+        lines = f.readlines()
+
+    annotations = []
+
+    # each line is an annotation bounding box
+    for line in lines:
+        obj = line.strip().split(' ')
+
+        # get class, if class is not in listed, skip it
+        try:
+            cls = config.CLASS_TO_IDX[obj[0].lower().strip()]
+            # print cls
+
+            # get coordinates
+            xmin = float(obj[4])
+            ymin = float(obj[5])
+            xmax = float(obj[6])
+            ymax = float(obj[7])
+
+            # check for valid bounding boxes
+            assert xmin >= 0.0 and xmin <= xmax, \
+                'Invalid bounding box x-coord xmin {} or xmax {} at {}' \
+                    .format(xmin, xmax, gt_file)
+            assert ymin >= 0.0 and ymin <= ymax, \
+                'Invalid bounding box y-coord ymin {} or ymax {} at {}' \
+                    .format(ymin, ymax, gt_file)
+
+            # transform to  point + width and height representation
+            x, y, w, h = bbox_transform_inv([xmin, ymin, xmax, ymax])
+
+            annotations.append([x, y, w, h, cls])
+        except:
+            continue
+    return annotations, None
+
+
+def load_json_annotation(gt_file, config):
+    """
+    Loads annotations from labelme files
+    :param gt_file: file with labelme annotation
+    :param config: config with table to translate labels to indexes
+    :return: list of rectangles with class
+    """
+    #import here for resource allocation economy in case we don't need json annotation
+    import json
+    json_annotation = dict()
+    with open(gt_file, 'r') as f:
+        json_annotation = json.load(f)
+    annotations = []
+    for shape in json_annotation["shapes"]:
+        try:
+            cls = config.CLASS_TO_IDX[shape["label"].lower().strip()]
+            points = np.array(shape["points"])
+            if shape["shape_type"] == "circle":
+                x, y, w = points[0, 0], points[0, 1], 2 * np.linalg.norm(points[0] - points[1])
+                h = w
+            else:
+                xmin = points[:, 0].min()
+                xmax = points[:, 0].max()
+                ymin = points[:, 1].min()
+                ymax = points[:, 1].max()
+                x, y, w, h = bbox_transform_inv([xmin, ymin, xmax, ymax])
+            annotations.append([x, y, w, h, cls])
+        except:
+            continue
+
+    return annotations, str(pathlib.Path(gt_file).parent / json_annotation["imagePath"])
+
+
+def load_annotation(gt_file, config):
+    """
+    Checks annotation file extension and uses suitable annotation loader
+    :param gt_file: file with annotation
+    :param config: config with table to translate labels to indexes
+    :return: list of rectangles with class
+    """
+    if gt_file.endswith(".json"):
+        return load_json_annotation(gt_file, config)
+    else:
+        return load_txt_annotation(gt_file, config)
+
+
 # we could maybe use the standard data generator from keras?
 def read_image_and_gt(img_files, gt_files, config, return_for_visualize=False):
     """
@@ -55,46 +143,6 @@ def read_image_and_gt(img_files, gt_files, config, return_for_visualize=False):
     deltas = []
     aidxs = []
 
-    # loads annotations from file
-    def load_annotation(gt_file):
-
-        with open(gt_file, 'r') as f:
-            lines = f.readlines()
-        f.close()
-
-        annotations = []
-
-        # each line is an annotation bounding box
-        for line in lines:
-            obj = line.strip().split(' ')
-
-            # get class, if class is not in listed, skip it
-            try:
-                cls = config.CLASS_TO_IDX[obj[0].lower().strip()]
-                # print cls
-
-                # get coordinates
-                xmin = float(obj[4])
-                ymin = float(obj[5])
-                xmax = float(obj[6])
-                ymax = float(obj[7])
-
-                # check for valid bounding boxes
-                assert xmin >= 0.0 and xmin <= xmax, \
-                    'Invalid bounding box x-coord xmin {} or xmax {} at {}' \
-                        .format(xmin, xmax, gt_file)
-                assert ymin >= 0.0 and ymin <= ymax, \
-                    'Invalid bounding box y-coord ymin {} or ymax {} at {}' \
-                        .format(ymin, ymax, gt_file)
-
-                # transform to  point + width and height representation
-                x, y, w, h = bbox_transform_inv([xmin, ymin, xmax, ymax])
-
-                annotations.append([x, y, w, h, cls])
-            except:
-                continue
-        return annotations
-
     # init tensor of images
     imgs = np.zeros((config.BATCH_SIZE, config.IMAGE_HEIGHT, config.IMAGE_WIDTH, config.N_CHANNELS))
     if return_for_visualize:
@@ -104,6 +152,11 @@ def read_image_and_gt(img_files, gt_files, config, return_for_visualize=False):
 
     # iterate files
     for img_name, gt_name in zip(img_files, gt_files):
+
+        # load annotations
+        annotations, image_file_from_annotation = load_annotation(gt_name, config)
+        if image_file_from_annotation:
+            img_name = image_file_from_annotation
 
         # open img
         img = cv2.imread(img_name).astype(np.float32, copy=False)
@@ -121,8 +174,6 @@ def read_image_and_gt(img_files, gt_files, config, return_for_visualize=False):
         img = (img - np.mean(img)) / np.std(img)
 
         # print(orig_h, orig_w)
-        # load annotations
-        annotations = load_annotation(gt_name)
 
         # split in classes and boxes
         labels_per_file = [a[4] for a in annotations]
@@ -178,8 +229,9 @@ def read_image_and_gt(img_files, gt_files, config, return_for_visualize=False):
         y_scale = config.IMAGE_HEIGHT / orig_h
 
         # scale boxes
-        bboxes_per_file[:, 0::2] = bboxes_per_file[:, 0::2] * x_scale
-        bboxes_per_file[:, 1::2] = bboxes_per_file[:, 1::2] * y_scale
+        if len(bboxes_per_file):
+            bboxes_per_file[:, 0::2] = bboxes_per_file[:, 0::2] * x_scale
+            bboxes_per_file[:, 1::2] = bboxes_per_file[:, 1::2] * y_scale
 
         bboxes.append(bboxes_per_file)
 
