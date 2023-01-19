@@ -66,17 +66,6 @@ def train():
     tf.gfile.MakeDirs(checkpoint_dir)
 
 
-
-
-    #open files with images and ground truths files with full path names
-    with open(img_file) as imgs:
-        img_names = imgs.read().splitlines()
-    imgs.close()
-    with open(gt_file) as gts:
-        gt_names = gts.read().splitlines()
-    gts.close()
-
-
     #create config object
     cfg = load_dict(CONFIG)
 
@@ -84,8 +73,6 @@ def train():
     #add stuff for documentation to config
     cfg.img_file = img_file
     cfg.gt_file = gt_file
-    cfg.images = img_names
-    cfg.gts = gt_names
     cfg.init_file = init_file
     cfg.EPOCHS = EPOCHS
     cfg.OPTIMIZER = OPTIMIZER
@@ -94,26 +81,32 @@ def train():
     cfg.REDUCELRONPLATEAU = REDUCELRONPLATEAU
 
 
-
-
     #set gpu
     if GPUS < 2:
-
         os.environ['CUDA_VISIBLE_DEVICES'] = CUDA_VISIBLE_DEVICES
-
     else:
-
         gpus = ""
         for i in range(GPUS):
-            gpus +=  str(i)+","
+            gpus += str(i) + ","
         os.environ['CUDA_VISIBLE_DEVICES'] = gpus
 
 
     #scale batch size to gpus
     cfg.BATCH_SIZE = cfg.BATCH_SIZE * GPUS
 
+
+    #open files with images and ground truths files with full path names
+    img_names = None
+    if img_file != "none":
+        with open(img_file) as imgs:
+            img_names = imgs.read().splitlines()
+    with open(gt_file) as gts:
+        gt_names = gts.read().splitlines()
+
+    #create train generator
+    train_generator = generator_from_data_path(img_names, gt_names, config=cfg)
     #compute number of batches per epoch
-    nbatches_train, mod = divmod(len(img_names), cfg.BATCH_SIZE)
+    nbatches_train, mod = divmod(len(gt_names), cfg.BATCH_SIZE)
 
     if STEPS is not None:
         nbatches_train = STEPS
@@ -121,7 +114,7 @@ def train():
     cfg.STEPS = nbatches_train
 
     #print some run info
-    print("Number of images: {}".format(len(img_names)))
+    print("Number of images: {}".format(len(gt_names)))
     print("Number of epochs: {}".format(EPOCHS))
     print("Number of batches: {}".format(nbatches_train))
     print("Batch size: {}".format(cfg.BATCH_SIZE))
@@ -217,8 +210,7 @@ def train():
 
         """
 
-    #create train generator
-    train_generator = generator_from_data_path(img_names, gt_names, config=cfg)
+
 
     def metric_wrap(model, metric_fn):
         def _metric_fn(*args):

@@ -12,7 +12,7 @@ if __name__ == "__main__":
     sys.path.append(root_dir)
 
 from main.model.squeezeDet import  SqueezeDet
-from main.model.dataGenerator import generator_from_data_path, visualization_generator_from_data_path
+from main.model.dataGenerator import generator_from_data_path
 from tensorflow.keras import optimizers
 import tensorflow.compat.v1 as tf
 import tensorflow.compat.v1.keras.backend as K
@@ -346,7 +346,7 @@ def eval():
                 val_generator_1 = generator_from_data_path(img_names, gt_names, config=cfg)
                 val_generator_2 = generator_from_data_path(img_names, gt_names, config=cfg)
                 # create a generator for the visualization of bounding boxes
-                vis_generator = visualization_generator_from_data_path(img_names, gt_names, config=cfg)
+                vis_generator = generator_from_data_path(img_names, gt_names, config=cfg, return_for_visualize=True)
 
                 print("  Evaluate losses...")
                 #compute losses of whole val set
