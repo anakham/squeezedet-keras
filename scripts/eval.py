@@ -130,11 +130,11 @@ def eval():
                         class_loss_var.assign(class_loss_placeholder),
                         bbox_loss_var.assign(bbox_loss_placeholder) ]
 
-    tf.summary.scalar("loss", loss_var)
-    tf.summary.scalar("loss_without_regularization", loss_without_regularization_var)
-    tf.summary.scalar("conf_loss", conf_loss_var)
-    tf.summary.scalar("class_loss", class_loss_var)
-    tf.summary.scalar("bbox_loss", bbox_loss_var)
+    tf.summary.scalar("epoch_loss", loss_var)
+    tf.summary.scalar("epoch_loss_without_regularization", loss_without_regularization_var)
+    tf.summary.scalar("epoch_conf_loss", conf_loss_var)
+    tf.summary.scalar("epoch_class_loss", class_loss_var)
+    tf.summary.scalar("epoch_bbox_loss", bbox_loss_var)
 
 
     #variables for images to visualize
